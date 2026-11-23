@@ -22,6 +22,19 @@ INDEX_DIR = os.path.join("data", "lucene_index")
 SEPARATOR = "\x1f"
 LIMIT = 10
 
+COLUMNS = [
+    ("#", 3),
+    ("score", 8),
+    ("title", 30),
+    ("artist", 20),
+    ("release_date", 11),
+    ("label", 26),
+    ("album_genre", 20),
+    ("album_type", 12),
+    ("artist_origin", 20),
+    ("album_producer", 19),
+]
+
 SEARCH_FIELDS = [
     "title",
     "artist",
@@ -129,7 +142,7 @@ def make_document(row):
     add_string(document, "album_genre_exact", row["album_genre"].lower(), False)
    
     add_text(document, "album_producer", row["album_producer"])
-    add_string(document, "album_type", row["album_type"])
+    add_string(document, "album_type", row["album_type"].lower())
     add_text(document, "album_studio", row["album_studio"])
     add_text(document, "album_recorded", row["album_recorded"])
 
@@ -190,24 +203,34 @@ def open_searcher():
 def get_or_empty(document, field):
     return document.get(field) or ""
 
+def cell(value, width):
+    text = (value or "").replace("\t", " ").replace("\n", " ")
+    if len(text) > width:
+        text = text[:width - 1] + "…"
+    return text.ljust(width)
+
 def print_hits(searcher, hits):
+    if len(hits) == 0:
+        return
+
+    print("  ".join(name.ljust(width) for name, width in COLUMNS).rstrip())
+    print("  ".join("-" * width for _, width in COLUMNS))
+
     for rank, score_doc in enumerate(hits, 1):
         document = searcher.doc(score_doc.doc)
-        print(
-            "\t".join([
-                str(rank),
-                f"{score_doc.score:.4f}",
-                get_or_empty(document, "album_id"),
-                get_or_empty(document, "title"),
-                get_or_empty(document, "artist"),
-                get_or_empty(document, "release_date"),
-                get_or_empty(document, "label"),
-                get_or_empty(document, "album_genre"),
-                get_or_empty(document, "album_type"),
-                get_or_empty(document, "artist_origin"),
-                get_or_empty(document, "album_producer"),
-            ])
-        )
+        values = [
+            str(rank),
+            f"{score_doc.score:.4f}",
+            get_or_empty(document, "title"),
+            get_or_empty(document, "artist"),
+            get_or_empty(document, "release_date"),
+            get_or_empty(document, "label"),
+            get_or_empty(document, "album_genre"),
+            get_or_empty(document, "album_type"),
+            get_or_empty(document, "artist_origin"),
+            get_or_empty(document, "album_producer"),
+        ]
+        print("  ".join(cell(value, width) for value, (_, width) in zip(values, COLUMNS)).rstrip())
 
 def search_text(text):
     directory, reader, searcher = open_searcher() 
